@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="旅費帳本">
+<meta name="theme-color" content="#1F6F73">
+<title>旅費帳本 — 多人出遊記帳</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink: #1B2A33;
+    --ink-soft: #5B6B73;
+    --ink-faint: #92A0A6;
+    --paper: #FFFFFF;
+    --bg: #F2F5F4;
+    --line: #DCE2E0;
+    --credit: #1F7A5C;
+    --credit-bg: #E6F2EC;
+    --debt: #BF5036;
+    --debt-bg: #F7E9E4;
+    --accent: #1F6F73;
+    --accent-bg: #E5EFEE;
+    --font-display: 'Fraunces', serif;
+    --font-body: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Sticky summary bar ── */
+  #summary-bar{
+    position: sticky; top: 0; z-index: 100;
+    background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 18px;
+    padding-top: calc(10px + env(safe-area-inset-top, 0px));
+    font-size: 13.5px; gap: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  #summary-bar .s-title{ font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+  #summary-bar .s-meta{ display: flex; gap: 14px; align-items: center; }
+  #summary-bar .s-item{ display: flex; flex-direction: column; align-items: flex-end; }
+  #summary-bar .s-label{ font-size: 10px; opacity: 0.7; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; }
+  #summary-bar .s-value{ font-family: var(--font-mono); font-size: 14px; font-weight: 500; line-height: 1.3; }
+
+  .wrap{ max-width: 720px; margin: 0 auto; padding: 20px 16px calc(40px + var(--safe-bottom)); }
+
+  header.app-head{ margin-bottom: 22px; }
+  header.app-head .eyebrow{
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin: 0 0 4px;
+  }
+  header.app-head h1{
+    font-family: var(--font-display); font-size: 28px; font-weight: 600;
+    margin: 0 0 5px; letter-spacing: -0.01em;
+  }
+  header.app-head p{ margin:0; color: var(--ink-soft); font-size: 14px; }
+
+  .card{
+    background: var(--paper); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px 16px; margin-bottom: 16px;
+  }
+  .card h2{
+    font-size: 14.5px; font-weight: 600; margin: 0 0 12px; color: var(--ink);
+    display:flex; align-items:center; gap:8px;
+  }
+  .card h2 .step{
+    font-family: var(--font-mono); font-size: 11px; color: var(--accent);
+    background: var(--accent-bg); border-radius: 6px; padding: 2px 7px;
+  }
+  .hint{ font-size: 13px; color: var(--ink-faint); margin: 0 0 12px; }
+
+  input[type=text], input[type=number], select, textarea{
+    font-family: var(--font-body); font-size: 16px; color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px;
+    background: var(--paper); outline: none; width: 100%;
+    -webkit-appearance: none; appearance: none;
+  }
+  select{ background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235B6B73' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 13px center; padding-right: 36px; }
+  input::placeholder, textarea::placeholder{ color: var(--ink-faint); }
+  input:focus, select:focus, textarea:focus{ border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+  textarea{ width:100%; resize: vertical; min-height: 56px; font-family: var(--font-body); }
+
+  /* Prevent iOS zoom on focus */
+  @supports (-webkit-touch-callout: none){
+    input[type=text], input[type=number], select, textarea{ font-size: 16px !important; }
+  }
+
+  button{
+    font-family: var(--font-body); font-size: 15px; font-weight: 600;
+    border-radius: 10px; padding: 11px 18px; cursor: pointer; border: 1px solid transparent;
+    min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+  }
+  button.primary{ background: var(--accent); color: #fff; }
+  button.primary:active{ background: #18595c; }
+  button.ghost{ background: var(--paper); color: var(--ink); border: 1px solid var(--line); }
+  button.ghost:active{ background: var(--bg); }
+  button.subtle{ background:none; border:none; color: var(--ink-faint); padding: 8px; display:flex; min-height: 36px; }
+  button.subtle:active{ color: var(--debt); }
+  button:disabled{ opacity:0.45; cursor:not-allowed; }
+  button.full{ width: 100%; }
+
+  .field-group{ display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .field-label{ font-size: 12.5px; font-weight: 600; color: var(--ink-soft); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .row.tight{ gap:8px; }
+  .two-col{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .people{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; min-height: 38px; }
+  .person-chip{
+    display:inline-flex; align-items:center; gap:6px; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 20px; padding: 7px 8px 7px 14px;
+    font-size: 14px;
+  }
+  .person-chip .name{ cursor: pointer; }
+  .person-chip input.rename{
+    border:none; background:none; padding:0; font-size:14px; width: 70px;
+    font-family: var(--font-body); color: var(--ink);
+  }
+  .person-chip input.rename:focus{ box-shadow:none; }
+  .empty-note{ font-size: 13.5px; color: var(--ink-faint); padding: 6px 0; }
+
+  .split-chip{
+    display:inline-flex; align-items:center; padding: 8px 14px; border-radius: 20px;
+    border: 1px solid var(--line); font-size: 14px; cursor:pointer; background: var(--paper);
+    min-height: 40px; font-weight: 500;
+  }
+  .split-chip.active{ border-color: var(--accent); background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+
+  .expense-row{
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 14px;
+  }
+  .expense-row:last-child{ border-bottom:none; }
+  .expense-row .info{ flex: 1; }
+  .expense-row .desc{ font-weight: 600; }
+  .expense-row .meta{ color: var(--ink-soft); font-size: 12.5px; margin-top: 2px; }
+  .expense-row .amt{ font-family: var(--font-mono); font-weight: 600; font-size: 15px; white-space: nowrap; padding-top: 1px; }
+
+  .totals-line{ display:flex; justify-content: space-between; align-items:baseline; margin-bottom: 6px; }
+  .totals-line .label{ font-size: 13px; color: var(--ink-soft); }
+  .totals-line .value{ font-family: var(--font-mono); font-size: 20px; font-weight: 600; }
+
+  .balance-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .balance-card{
+    border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px;
+    border-left: 3px solid var(--line); background: var(--paper);
+  }
+  .balance-card.is-credit{ border-left-color: var(--credit); }
+  .balance-card.is-debt{ border-left-color: var(--debt); }
+  .balance-card .name{ font-size: 13px; color: var(--ink-soft); margin: 0 0 4px; }
+  .balance-card .net{ font-family: var(--font-mono); font-size: 20px; font-weight: 600; margin: 0; }
+  .balance-card .net.credit{ color: var(--credit); }
+  .balance-card .net.debt{ color: var(--debt); }
+  .balance-card .sub{ font-size: 11px; color: var(--ink-faint); margin: 4px 0 0; }
+
+  .ticket{
+    position: relative; display:flex; align-items:center; gap: 12px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 10px;
+    padding: 13px 18px; margin-bottom: 10px;
+  }
+  .ticket::before, .ticket::after{
+    content:''; position:absolute; width:14px; height:14px; background: var(--bg);
+    border-radius:50%; top:50%; transform: translateY(-50%);
+  }
+  .ticket::before{ left:-7px; }
+  .ticket::after{ right:-7px; }
+  .ticket .who{ font-weight: 600; font-size: 14.5px; }
+  .ticket .arrow{ color: var(--ink-faint); font-size: 14px; flex-shrink: 0; }
+  .ticket .amt{
+    margin-left:auto; font-family: var(--font-mono); font-weight: 600; font-size: 15px;
+    color: var(--accent); padding-left: 12px; border-left: 1px dashed var(--line);
+    white-space: nowrap;
+  }
+
+  .settled-note{ font-size: 14px; color: var(--credit); background: var(--credit-bg); border-radius: 9px; padding: 12px 16px; }
+
+  .save-badge{
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; color: var(--credit); background: var(--credit-bg);
+    border-radius: 6px; padding: 3px 8px; font-weight: 600;
+  }
+
+  footer{ text-align:center; margin-top: 28px; }
+  footer .reset{ font-size: 12.5px; color: var(--ink-faint); background:none; border:none; min-height: auto; text-decoration: underline; cursor:pointer; padding: 4px; }
+  footer .note{ font-size: 11.5px; color: var(--ink-faint); margin-top: 8px; line-height: 1.5; }
+
+  svg.icon{ width:16px; height:16px; display:block; flex-shrink: 0; }
+
+  /* Install hint banner */
+  #install-hint{
+    background: var(--accent-bg); border: 1px solid var(--accent); border-radius: 12px;
+    padding: 12px 15px; margin-bottom: 16px; font-size: 13px; color: var(--accent);
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  #install-hint .ih-icon{ font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  #install-hint p{ margin: 0; line-height: 1.5; }
+  #install-hint button.close-hint{
+    background: none; border: none; color: var(--accent); min-height: auto; padding: 0 0 0 8px;
+    font-size: 18px; cursor: pointer; flex-shrink: 0; margin-left: auto; opacity: 0.6;
+  }
+
+  details summary{ font-size: 13px; color: var(--ink-soft); cursor: pointer; padding: 4px 0; }
+  details summary::-webkit-details-marker{ color: var(--accent); }
+  details[open] summary{ margin-bottom: 10px; }
+
+  @media (max-width: 480px){
+    .wrap{ padding: 16px 12px calc(32px + var(--safe-bottom)); }
+    header.app-head h1{ font-size: 24px; }
+    .balance-grid{ grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── Custom confirm dialog ── */
+  #dialog-overlay{
+    display: none; position: fixed; inset: 0; z-index: 999;
+    background: rgba(0,0,0,0.45); align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  #dialog-overlay.show{ display: flex; }
+  #dialog-box{
+    background: var(--paper); border-radius: 18px; padding: 24px 20px 18px;
+    max-width: 320px; width: 100%; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  }
+  #dialog-box p{ margin: 0 0 20px; font-size: 15px; line-height: 1.6; color: var(--ink); }
+  #dialog-box .d-btns{ display: flex; gap: 10px; }
+  #dialog-box .d-btns button{ flex: 1; }
+  #dialog-cancel{ background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 11px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: var(--font-body); }
+  #dialog-confirm{ background: var(--debt); color: #fff; border: none; border-radius: 10px; padding: 11px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: var(--font-body); }
+</style>
+</head>
+<body>
+
+<!-- Sticky top summary bar -->
+<div id="summary-bar">
+  <span class="s-title">✈️ 旅費帳本</span>
+  <div class="s-meta">
+    <div class="s-item">
+      <span class="s-label">總支出</span>
+      <span class="s-value" id="bar-total">$0</span>
+    </div>
+    <div class="s-item">
+      <span class="s-label">人數</span>
+      <span class="s-value" id="bar-people">0 人</span>
+    </div>
+    <div class="s-item">
+      <span class="s-label">筆數</span>
+      <span class="s-value" id="bar-count">0 筆</span>
+    </div>
+  </div>
+</div>
+
+<!-- Custom confirm dialog -->
+<div id="dialog-overlay">
+  <div id="dialog-box">
+    <p id="dialog-msg"></p>
+    <div class="d-btns">
+      <button id="dialog-cancel">取消</button>
+      <button id="dialog-confirm">確定刪除</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- Install hint (iOS) -->
+  <div id="install-hint" style="display:none;">
+    <span class="ih-icon">📲</span>
+    <p>想把這個帳本存到手機桌面？點 Safari 底部的「分享」→「加入主畫面」，之後就能像 App 一樣開啟，資料也會保留。</p>
+    <button class="close-hint" onclick="dismissHint()" aria-label="關閉">✕</button>
+  </div>
+
+  <header class="app-head">
+    <p class="eyebrow">出遊記帳</p>
+    <h1>旅費帳本</h1>
+    <p>新增同行夥伴、記下每一筆支出，帳目與該收該付的金額即時試算。<br>
+    <span class="save-badge">💾 自動儲存</span> 資料存在手機裡，不怕關掉頁面。</p>
+  </header>
+
+  <!-- STEP 1: People -->
+  <section class="card">
+    <h2><span class="step">1</span> 設定同行夥伴</h2>
+    <p class="hint">點名字可以重新命名，點 ✕ 移除（會同步刪除該人付款的紀錄）。</p>
+    <div id="people" class="people"></div>
+    <div class="field-group">
+      <div>
+        <div class="field-label">加入一位夥伴</div>
+        <div class="row tight">
+          <input id="new-name" type="text" placeholder="輸入名字" style="flex:1;">
+          <button class="primary" id="add-one" style="flex-shrink:0;">加入</button>
+        </div>
+      </div>
+      <details>
+        <summary>一次加入多人（逗號或換行分隔）</summary>
+        <textarea id="batch-names" placeholder="例如：小明, 小華, 小美" style="margin-bottom:8px;"></textarea>
+        <button class="ghost full" id="add-batch">批量加入</button>
+      </details>
+    </div>
+  </section>
+
+  <!-- STEP 2: Add expense -->
+  <section class="card">
+    <h2><span class="step">2</span> 新增一筆支出</h2>
+    <div id="expense-form-disabled" class="hint" style="display:none;">請先新增至少 2 位夥伴才能記帳。</div>
+    <div id="expense-form">
+      <div class="field-group">
+        <div>
+          <div class="field-label">項目說明</div>
+          <input id="exp-desc" type="text" placeholder="例如：晚餐、住宿、門票">
+        </div>
+        <div class="two-col">
+          <div>
+            <div class="field-label">金額</div>
+            <input id="exp-amount" type="number" min="0" step="1" placeholder="0" inputmode="decimal">
+          </div>
+          <div>
+            <div class="field-label">付款人</div>
+            <select id="exp-payer"></select>
+          </div>
+        </div>
+        <div>
+          <div class="field-label">分攤給誰？</div>
+          <div id="split-among" class="row tight" style="margin-top: 4px;"></div>
+        </div>
+        <button class="primary full" id="add-expense">＋ 記一筆</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 3: Expense list -->
+  <section class="card">
+    <h2><span class="step">3</span> 支出明細</h2>
+    <div class="totals-line">
+      <span class="label">總支出</span>
+      <span class="value" id="total-amount">$0</span>
+    </div>
+    <div id="expense-list" style="margin-top:6px;"></div>
+  </section>
+
+  <!-- STEP 4: Balances -->
+  <section class="card">
+    <h2><span class="step">4</span> 每人結餘</h2>
+    <div id="balances" class="balance-grid"></div>
+  </section>
+
+  <!-- STEP 5: Settlements -->
+  <section class="card">
+    <h2><span class="step">5</span> 該誰付給誰</h2>
+    <div id="settlements"></div>
+  </section>
+
+  <footer>
+    <button class="reset" id="reset-all">清除所有資料，重新開始</button>
+    <p class="note">資料存在這個裝置的瀏覽器裡，清除快取才會消失。<br>結算完記得截圖保存！</p>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  // ── Custom dialog (replaces confirm() which is blocked on some mobile browsers) ──
+  function showConfirm(msg, confirmLabel, onConfirm){
+    document.getElementById('dialog-msg').textContent = msg;
+    document.getElementById('dialog-confirm').textContent = confirmLabel || '確定';
+    const overlay = document.getElementById('dialog-overlay');
+    overlay.classList.add('show');
+    const cancel = document.getElementById('dialog-cancel');
+    const confirm = document.getElementById('dialog-confirm');
+    function close(){ overlay.classList.remove('show'); cancel.onclick = null; confirm.onclick = null; }
+    cancel.onclick = close;
+    confirm.onclick = () => { close(); onConfirm(); };
+    overlay.onclick = (e) => { if(e.target === overlay) close(); };
+  }
+
+  // ── State ──
+  const STORAGE_KEY = 'trip-ledger-v1';
+
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return null;
+      return JSON.parse(raw);
+    } catch(e){ return null; }
+  }
+
+  function saveState(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ people, expenses, nextPid, nextEid }));
+    } catch(e){}
+  }
+
+  let people = [], expenses = [], nextPid = 1, nextEid = 1;
+  let splitSelection = new Set();
+
+  const saved = loadState();
+  if(saved){
+    people = saved.people || [];
+    expenses = saved.expenses || [];
+    nextPid = saved.nextPid || 1;
+    nextEid = saved.nextEid || 1;
+    splitSelection = new Set(people.map(p => p.id));
+  }
+
+  // ── iOS install hint ──
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone;
+  const hintDismissed = localStorage.getItem('hint-dismissed');
+  if(isIOS && !isStandalone && !hintDismissed){
+    document.getElementById('install-hint').style.display = 'flex';
+  }
+  window.dismissHint = function(){
+    document.getElementById('install-hint').style.display = 'none';
+    localStorage.setItem('hint-dismissed', '1');
+  };
+
+  // ── Helpers ──
+  const fmt = n => '$' + Math.round(n).toLocaleString();
+
+  function addPerson(name){
+    name = name.trim();
+    if(!name) return;
+    const id = nextPid++;
+    people.push({id, name});
+    splitSelection.add(id);
+    saveState();
+    render();
+  }
+
+  function removePerson(id){
+    const p = people.find(p => p.id === id);
+    const name = p ? p.name : '這位夥伴';
+    showConfirm('移除「' + name + '」後，相關支出也會一起刪除。', '確定移除', () => {
+      people = people.filter(p => p.id !== id);
+      splitSelection.delete(id);
+      expenses = expenses.filter(e => e.payerId !== id);
+      expenses.forEach(e => { e.splitAmong = e.splitAmong.filter(pid => pid !== id); });
+      saveState();
+      render();
+    });
+  }
+
+  function renamePerson(id, newName){
+    newName = newName.trim();
+    const p = people.find(p => p.id === id);
+    if(p && newName) p.name = newName;
+    saveState();
+    render();
+  }
+
+  function toggleSplit(id){
+    if(splitSelection.has(id)) splitSelection.delete(id); else splitSelection.add(id);
+    renderSplitChips();
+  }
+
+  function addExpense(){
+    const desc = document.getElementById('exp-desc').value.trim() || '未命名支出';
+    const amount = parseFloat(document.getElementById('exp-amount').value);
+    const payerId = parseInt(document.getElementById('exp-payer').value);
+    if(!amount || amount <= 0 || !payerId || splitSelection.size === 0) return;
+    expenses.push({ id: nextEid++, desc, amount, payerId, splitAmong: Array.from(splitSelection) });
+    document.getElementById('exp-desc').value = '';
+    document.getElementById('exp-amount').value = '';
+    saveState();
+    render();
+    // Scroll to expense list
+    setTimeout(() => document.getElementById('expense-list').closest('.card').scrollIntoView({behavior:'smooth', block:'start'}), 100);
+  }
+
+  function removeExpense(id){
+    expenses = expenses.filter(e => e.id !== id);
+    saveState();
+    render();
+  }
+
+  function computeBalances(){
+    const map = {};
+    people.forEach(p => map[p.id] = { paid: 0, share: 0 });
+    expenses.forEach(e => {
+      if(map[e.payerId]) map[e.payerId].paid += e.amount;
+      const per = e.splitAmong.length ? e.amount / e.splitAmong.length : 0;
+      e.splitAmong.forEach(pid => { if(map[pid]) map[pid].share += per; });
+    });
+    return map;
+  }
+
+  function computeSettlements(balanceMap){
+    const debtors = [], creditors = [];
+    people.forEach(p => {
+      const b = balanceMap[p.id];
+      const net = b.paid - b.share;
+      if(net < -0.005) debtors.push({ name: p.name, amount: -net });
+      else if(net > 0.005) creditors.push({ name: p.name, amount: net });
+    });
+    debtors.sort((a,b) => b.amount - a.amount);
+    creditors.sort((a,b) => b.amount - a.amount);
+    const results = [];
+    let i = 0, j = 0;
+    while(i < debtors.length && j < creditors.length){
+      const d = debtors[i], c = creditors[j];
+      const amt = Math.min(d.amount, c.amount);
+      if(amt > 0.01) results.push({ from: d.name, to: c.name, amount: amt });
+      d.amount -= amt; c.amount -= amt;
+      if(d.amount <= 0.01) i++;
+      if(c.amount <= 0.01) j++;
+    }
+    return results;
+  }
+
+  // ── Icons ──
+  function iconX(){
+    return '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  }
+  function iconTrash(){
+    return '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
+  }
+
+  // ── Renderers ──
+  function renderPeople(){
+    const el = document.getElementById('people');
+    el.innerHTML = '';
+    if(people.length === 0){
+      el.innerHTML = '<span class="empty-note">尚未新增任何人，在下方輸入名字吧。</span>';
+      return;
+    }
+    people.forEach(p => {
+      const chip = document.createElement('span');
+      chip.className = 'person-chip';
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'name';
+      nameSpan.textContent = p.name;
+      nameSpan.title = '點擊重新命名';
+      nameSpan.onclick = () => {
+        const inp = document.createElement('input');
+        inp.className = 'rename';
+        inp.value = p.name;
+        inp.style.fontSize = '14px';
+        chip.replaceChild(inp, nameSpan);
+        inp.focus();
+        inp.select();
+        const commit = () => { renamePerson(p.id, inp.value || p.name); };
+        inp.addEventListener('blur', commit);
+        inp.addEventListener('keydown', e => { if(e.key === 'Enter') commit(); });
+      };
+      const delBtn = document.createElement('button');
+      delBtn.className = 'subtle';
+      delBtn.style.minHeight = 'auto';
+      delBtn.style.padding = '4px';
+      delBtn.setAttribute('aria-label', '移除 ' + p.name);
+      delBtn.innerHTML = iconX();
+      delBtn.onclick = () => removePerson(p.id);
+      chip.appendChild(nameSpan);
+      chip.appendChild(delBtn);
+      el.appendChild(chip);
+    });
+  }
+
+  function renderPayerSelect(){
+    const sel = document.getElementById('exp-payer');
+    const prev = sel.value;
+    sel.innerHTML = '';
+    people.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      sel.appendChild(opt);
+    });
+    if(prev) sel.value = prev;
+  }
+
+  function renderSplitChips(){
+    const el = document.getElementById('split-among');
+    el.innerHTML = '';
+    people.forEach(p => {
+      const chip = document.createElement('span');
+      chip.className = 'split-chip' + (splitSelection.has(p.id) ? ' active' : '');
+      chip.textContent = p.name;
+      chip.onclick = () => toggleSplit(p.id);
+      el.appendChild(chip);
+    });
+  }
+
+  function renderExpenseFormState(){
+    const disabled = people.length < 2;
+    document.getElementById('expense-form-disabled').style.display = disabled ? 'block' : 'none';
+    document.getElementById('expense-form').style.display = disabled ? 'none' : 'block';
+  }
+
+  function renderExpenses(){
+    const el = document.getElementById('expense-list');
+    el.innerHTML = '';
+    const total = expenses.reduce((s,e) => s + e.amount, 0);
+    document.getElementById('total-amount').textContent = fmt(total);
+    document.getElementById('bar-total').textContent = fmt(total);
+    document.getElementById('bar-people').textContent = people.length + ' 人';
+    document.getElementById('bar-count').textContent = expenses.length + ' 筆';
+    if(expenses.length === 0){
+      el.innerHTML = '<p class="empty-note">尚無支出記錄。</p>';
+      return;
+    }
+    expenses.slice().reverse().forEach(e => {
+      const payer = people.find(p => p.id === e.payerId);
+      const row = document.createElement('div');
+      row.className = 'expense-row';
+      const info = document.createElement('div');
+      info.className = 'info';
+      info.innerHTML =
+        '<div class="desc">' + e.desc + '</div>' +
+        '<div class="meta">' + (payer ? payer.name : '已移除') + ' 付款 · 分攤 ' + e.splitAmong.length + ' 人</div>';
+      const amt = document.createElement('span');
+      amt.className = 'amt';
+      amt.textContent = fmt(e.amount);
+      const del = document.createElement('button');
+      del.className = 'subtle';
+      del.style.minHeight = 'auto';
+      del.setAttribute('aria-label', '刪除');
+      del.innerHTML = iconTrash();
+      del.onclick = () => removeExpense(e.id);
+      row.appendChild(info);
+      row.appendChild(amt);
+      row.appendChild(del);
+      el.appendChild(row);
+    });
+  }
+
+  function renderBalances(){
+    const el = document.getElementById('balances');
+    el.innerHTML = '';
+    if(people.length === 0){
+      el.innerHTML = '<p class="empty-note">先新增夥伴才會顯示結餘。</p>';
+      return;
+    }
+    const map = computeBalances();
+    people.forEach(p => {
+      const b = map[p.id];
+      const net = b.paid - b.share;
+      const state = net > 0.01 ? 'is-credit' : (net < -0.01 ? 'is-debt' : '');
+      const netClass = net > 0.01 ? 'credit' : (net < -0.01 ? 'debt' : '');
+      const label = net > 0.01 ? '可收回' : (net < -0.01 ? '需支付' : '已結清');
+      const card = document.createElement('div');
+      card.className = 'balance-card ' + state;
+      card.innerHTML =
+        '<p class="name">' + p.name + '</p>' +
+        '<p class="net ' + netClass + '">' + (net >= 0 ? '+' : '-') + fmt(Math.abs(net)) + '</p>' +
+        '<p class="sub">' + label + ' · 已付 ' + fmt(b.paid) + '</p>';
+      el.appendChild(card);
+    });
+  }
+
+  function renderSettlements(){
+    const el = document.getElementById('settlements');
+    el.innerHTML = '';
+    if(people.length === 0){
+      el.innerHTML = '<p class="empty-note">先新增夥伴並記帳，才能算出該誰付給誰。</p>';
+      return;
+    }
+    const map = computeBalances();
+    const results = computeSettlements(map);
+    if(results.length === 0){
+      el.innerHTML = '<p class="settled-note">✅ 帳目已平衡，沒有人需要轉帳。</p>';
+      return;
+    }
+    results.forEach(r => {
+      const row = document.createElement('div');
+      row.className = 'ticket';
+      row.innerHTML =
+        '<span class="who">' + r.from + '</span>' +
+        '<span class="arrow">→</span>' +
+        '<span class="who">' + r.to + '</span>' +
+        '<span class="amt">' + fmt(r.amount) + '</span>';
+      el.appendChild(row);
+    });
+  }
+
+  function render(){
+    renderPeople();
+    renderPayerSelect();
+    renderSplitChips();
+    renderExpenseFormState();
+    renderExpenses();
+    renderBalances();
+    renderSettlements();
+  }
+
+  // ── Events ──
+  document.getElementById('add-one').onclick = () => {
+    const input = document.getElementById('new-name');
+    addPerson(input.value);
+    input.value = '';
+    input.focus();
+  };
+  document.getElementById('new-name').addEventListener('keydown', e => {
+    if(e.key === 'Enter') document.getElementById('add-one').click();
+  });
+  document.getElementById('add-batch').onclick = () => {
+    const ta = document.getElementById('batch-names');
+    const names = ta.value.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
+    names.forEach(addPerson);
+    ta.value = '';
+  };
+  document.getElementById('add-expense').onclick = addExpense;
+  document.getElementById('reset-all').onclick = () => {
+    showConfirm('確定要清除所有夥伴與支出紀錄嗎？此動作無法復原。', '確定清除', () => {
+      people = []; expenses = []; splitSelection = new Set(); nextPid = 1; nextEid = 1;
+      localStorage.removeItem(STORAGE_KEY);
+      render();
+    });
+  };
+
+  render();
+})();
+</script>
+</body>
+</html>
